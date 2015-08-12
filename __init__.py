@@ -6,6 +6,7 @@ import hashlib
 import requests
 import json
 import time
+from decimal import Decimal
 
 app = Flask(__name__)
 
@@ -86,27 +87,49 @@ def endpoint():
 			# Pattern for Zip Code - 5 characters, all digits
 			if var.isdigit() and len(var) == 5:
 				zip = Zipcodes.query.filter_by(postal_code=var).first()
-				return jsonify({'identified_as':'zipcode','coordinates':{'latitude':str(zip.latitude),'longitude':str(zip.longitude)}})
+				if not zip:
+					return [999,999]
+				else:
+					return [zip.latitude, zip.longitude]
 			else:
 				arr = var.split(',', 1)
 				# Pattern for Coordinates - if input can be split into an array of 2 values using comma as a deliminator and both are floating
 				# point values
 				if len(arr) == 2 and isFloat(arr[0]) and isFloat(arr[1]):
-					return jsonify({'identified_as':'coordinates','coordinates':{'latitude':arr[0],'longitude':arr[1]}})
+					return arr
 				
 				# Error if input is non-Zip Code but all numeric
 				elif var.isdigit() and len(var) != 5:
-					return jsonify({'error':'Invaid input.'})
+					return [999,999]
 				
 				# Handle as an address - push to Google Geocode API.	
 				else:
 					parameters = {'address':var,'key':GOOGLE_SECRET_KEY}
-					r = requests.get("https://maps.googleapis.com/maps/api/geocode/json", params=parameters)
-					#return json.loads(r.text)
-					return jsonify(**r.json())
-		
+					r = requests.get("https://maps.googleapis.com/maps/api/geocode/json", params=parameters).json()
+					return r['results'][0]['geometry']['location']['lat'], r['results'][0]['geometry']['location']['lng']
+
+		def midpoint(yLoc, fLoc):
+			return [(Decimal(yLoc[0]) + Decimal(fLoc[0])) / 2, (Decimal(yLoc[1]) + Decimal(fLoc[1])) / 2]		
+	
+		def googlePlaces(midpoint, locationType):
+			parameters = {
+				'location':str(midpoint[0]) + "," + str(midpoint[1]),
+				'rankby':'distance',
+				'types':'restaurant',
+				'key':GOOGLE_SECRET_KEY		
+			}		
+			r = requests.get("https://maps.googleapis.com/maps/api/place/nearbysearch/json",params=parameters)
+			return jsonify(**r.json())
+
 		# Return the result of the evaluate method on contents of "you"
-		return evaluate(request.args['you'])
+		yourLoc = evaluate(request.args['you'])
+		friendLoc = evaluate(request.args['friend'])
+
+		if yourLoc == friendLoc:
+			return make_response(jsonify({'Invalid Usage':'Identical locations - please enter two unique locations!'}), 400)	
+		else:
+			midpoint = midpoint(yourLoc, friendLoc)
+			return googlePlaces(midpoint, "restaurant")
 
 ###
 # Registes a new user. First checks to confirm that POST parameters are set and email address is not registered yet.
