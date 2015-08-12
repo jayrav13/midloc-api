@@ -17,3 +17,17 @@ class Zipcodes(db.Model):
 	def __init__(self, postal_code):
 		self.postal_code = postal_code
 
+class Users(db.Model):
+	__tablename__ = 'users'
+
+	id = db.Column(db.Integer, primary_key=True)
+	email = db.Column(db.String, unique=True)
+	password = db.Column(db.String)
+	access_key = db.Column(db.String)
+	request_count = db.Column(db.Integer)
+
+	def __init__(self, email, password, access_key):
+		self.email = email
+		self.password = password
+		self.access_key = access_key
+		self.request_count = 1
