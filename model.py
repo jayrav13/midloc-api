@@ -38,7 +38,11 @@ class Register(db.Model):
 	id = db.Column(db.Integer, primary_key=True)
 	ip = db.Column(db.String)
 	datetime = db.Column(db.String)
+	illegal_register = db.Column(db.Integer)
+	legal_register = db.Column(db.Integer)
 
 	def __init__(self, ip, datetime):
 		self.ip = ip
 		self.datetime = datetime
+		self.illegal_register = 0
+		self.legal_register = 1

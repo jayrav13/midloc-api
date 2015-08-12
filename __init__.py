@@ -149,8 +149,10 @@ def register():
 
 	if reg:
 		if Decimal(time.time()) - Decimal(reg.datetime) < 60.0:
+			reg.illegal_register = reg.illegal_register + 1 
 			return make_response(jsonify({'error':'FREQUENT_REGISTRATION','notes':'Wait 60 seconds between registering from the same IP.'}), 400)
 		else:
+			reg.legal_register = reg.legal_register + 1
 			reg.datetime = time.time()
 	else:
 		reg = Register(request.remote_addr, time.time())
