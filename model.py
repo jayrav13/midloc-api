@@ -31,3 +31,14 @@ class Users(db.Model):
 		self.password = password
 		self.access_key = access_key
 		self.request_count = 1
+
+class Register(db.Model):
+	__tablename__ = "register"
+
+	id = db.Column(db.Integer, primary_key=True)
+	ip = db.Column(db.String)
+	datetime = db.Column(db.String)
+
+	def __init__(self, ip, datetime):
+		self.ip = ip
+		self.datetime = datetime

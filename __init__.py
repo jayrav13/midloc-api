@@ -1,10 +1,11 @@
 from flask import abort, Flask, jsonify, redirect, request, make_response, render_template
 #from flask.ext.assets import Environment, Bundle
-from model import Users, Zipcodes, db
+from model import Register, Users, Zipcodes, db
 from secret import GOOGLE_SECRET_KEY
 import hashlib
 import requests
 import json
+import datetime
 import time
 from decimal import Decimal
 
@@ -22,8 +23,11 @@ def home():
 ###
 # Will be the total "documentation" for this API
 ###
-@app.route("/api")
+@app.route("/api", methods=['GET'])
 def introduction():
+	reg = Register(request.remote_addr, time.time())
+	db.session.add(reg)
+	db.session.commit()
 	return jsonify(
 		{
 			'welcome':'Welcome to Midloc\'s RESTful API.', 
@@ -119,23 +123,41 @@ def endpoint():
 				'key':GOOGLE_SECRET_KEY		
 			}		
 			r = requests.get("https://maps.googleapis.com/maps/api/place/nearbysearch/json",params=parameters)
-			return jsonify(**r.json())
+			requestJSON = r.json()
+			if requestJSON['status'] == 'ZERO_RESULTS':
+				return make_response(jsonify({'error':'ZERO_RESULTS'}),404)
+			else:
+				return jsonify(**r.json())
 
 		# Return the result of the evaluate method on contents of "you"
 		yourLoc = evaluate(request.args['you'])
 		friendLoc = evaluate(request.args['friend'])
 
 		if yourLoc == friendLoc:
-			return make_response(jsonify({'Invalid Usage':'Identical locations - please enter two unique locations!'}), 400)	
+			return make_response(jsonify({'error':'SAME_LOCATIONS'}), 400)	
 		else:
 			midpoint = midpoint(yourLoc, friendLoc)
 			return googlePlaces(midpoint, "restaurant")
 
 ###
 # Registes a new user. First checks to confirm that POST parameters are set and email address is not registered yet.
+# Disallows users from registering from the same IP within 60 seconds of each other.
 ###
 @app.route('/api/register', methods=['POST'])
 def register():
+	reg = Register.query.filter_by(ip=request.remote_addr).first()
+
+	if reg:
+		if Decimal(time.time()) - Decimal(reg.datetime) < 60.0:
+			return make_response(jsonify({'error':'FREQUENT_REGISTRATION','notes':'Wait 60 seconds between registering from the same IP.'}), 400)
+		else:
+			reg.datetime = time.time()
+	else:
+		reg = Register(request.remote_addr, time.time())
+		db.session.add(reg)
+		
+	db.session.commit()
+	
 	if not request.form['email'] or not request.form['password']:
 		abort(400)
 	elif Users.query.filter_by(email=request.form['email']).first():
