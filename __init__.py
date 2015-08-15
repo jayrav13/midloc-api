@@ -25,9 +25,6 @@ def home():
 ###
 @app.route("/api", methods=['GET'])
 def introduction():
-	reg = Register(request.remote_addr, time.time())
-	db.session.add(reg)
-	db.session.commit()
 	return jsonify(
 		{
 			'welcome':'Welcome to Midloc\'s RESTful API.', 
@@ -47,7 +44,7 @@ def introduction():
 					},
 					'endpoint':
 					{
-						'request':'A request can be sent to the endpoint, found at /api/v1.0/endpoint (via GET) woth parameters \"you\", \"friend\" and \"access_key\"',
+						'request':'A request can be sent to the endpoint, found at /api/v1.0/endpoint (via GET) woth parameters \"you\", \"friend\", \"types\" and \"access_key\"',
 						'patterns':
 						{
 							'zip_code':'A five digit number. (ex. \"07470\")',
@@ -65,7 +62,7 @@ def introduction():
 @app.route("/api/v1.0/endpoint", methods=['GET'])
 def endpoint():
 	# Abort 400 if proper parameters aren't set
-	if not request.args['you'] or not request.args['friend'] or not request.args['access_key']:
+	if not request.args['you'] or not request.args['friend'] or not request.args['types'] or not request.args['access_key']:
 		abort(400)
 
 	else:
@@ -119,11 +116,12 @@ def endpoint():
 			parameters = {
 				'location':str(midpoint[0]) + "," + str(midpoint[1]),
 				'rankby':'distance',
-				'types':'restaurant',
+				'types':request.args['types'],
 				'key':GOOGLE_SECRET_KEY		
 			}		
 			r = requests.get("https://maps.googleapis.com/maps/api/place/nearbysearch/json",params=parameters)
 			requestJSON = r.json()
+
 			if requestJSON['status'] == 'ZERO_RESULTS':
 				return make_response(jsonify({'error':'ZERO_RESULTS'}),404)
 			else:
